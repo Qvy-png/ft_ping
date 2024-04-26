@@ -109,7 +109,6 @@ int target_finder(int argc, char **argv) {
             printf("Target: %s\n", argv[i]);
             return i;
         }
-        // i++;
     }
     return -1;
 }
