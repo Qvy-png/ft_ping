@@ -13,6 +13,11 @@
 #define PING_TIMEOUT    2
 
 int verbose = 0;
+int audible = 0;
+int count = 0;
+int timer = 1;
+int exit_after_reply = 0;
+int quiet = 0;
 
 // Calculate checksum for ICMP packet
 unsigned short checksum(void *b, int len) {
@@ -72,6 +77,7 @@ void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
         perror("recvfrom");
         return;
     }
+    // else if ( )
 
     // Calculate RTT
     gettimeofday(&end, NULL);
@@ -88,8 +94,28 @@ int arg_finder(int argc, char **argv) {
 
     i = 0;
     while (i < argc) {
-        if (strcmp(argv[i], "-v") == 0) {
-            return 1;
+        if (argv[i][0] == '-')
+        {
+            if (strcmp(argv[i], "-v") == 0) {
+                verbose = 1;
+            }
+            else if (strcmp(argv[i], "-a") == 0) {
+                audible = 1;
+            }
+            else if (strcmp(argv[i], "-c") == 0) { //TODO intercepter le argv[i+1] pour garder le nombre de ping
+                count = 1; // nbr de count
+            }
+            else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
+                // return i;
+            }
+            else if (strcmp(argv[i], "-o") == 0) { //TODO exit after a single reply packet
+                exit_after_reply = 1;
+            }
+            else if (strcmp(argv[i], "-q") == 0) { //TODO retirer les messages de ping
+                quiet = 1;
+            }
+            else
+                return i;
         }
         i++;
     }
@@ -113,21 +139,22 @@ int target_finder(int argc, char **argv) {
     return -1;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
     struct hostent *host;
     struct sockaddr_in addr;
     int sockfd, seq = 0;
-
+    int j = 0;
     printf("%d\n", argc);
 
     if (argc < 2) {
         printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
         return 1;
     }
-    if (arg_finder(argc, argv) == 1) {
-        verbose = 1;
-        printf("Verbose mode enabled\n");
+    j = arg_finder(argc, argv);
+    if (j != 0) {
+        printf("ping: invalid option -- '%s'\n", argv[j]);
+        return 1;
     }
 
     int foundTarget = 0;
@@ -168,3 +195,6 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
+
+//TODO les 5 flags à faire : -a -c -i -o -q
