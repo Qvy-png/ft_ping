@@ -123,18 +123,27 @@ int arg_finder(int argc, char **argv) {
                     printf("Debug : Count: %d\n", count);
                     i++;
                 }
+                else { 
+                if (argv[i+1] == NULL){
+                    //TODO print usage, replacing the current message
+                    printf("ping: option requires an argument -- 'c'\n");
+                }
+                else
+                    printf("ping: invalid count of packets to transmit : `%s'\n", argv[i+1]);
+                    return 1;
+                }
             }
             else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
                 // return i;
             }
             else if (strcmp(argv[i], "-o") == 0) { //TODO exit after a single reply packet
-                exit_after_reply = 1;
+                count = 1;
             }
             else if (strcmp(argv[i], "-q") == 0) { //TODO retirer les messages de ping
                 quiet = 1;
             }
             else
-                return i;
+                return -1;
         }
         i++;
     }
@@ -159,6 +168,8 @@ int target_finder(int argc, char **argv) {
             i++;
         }
     }
+
+    printf("Debug : Target count: %d\n", target_count);
     if (target_count > 1)
         return -1;
     else
@@ -172,6 +183,7 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     int sockfd, seq = 0;
     int j = 0;
     int ping_return = 0;
+    unsigned int end = 0;
 
     printf("Debug : argc: %d\n", argc);
 
@@ -181,7 +193,8 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     }
     j = arg_finder(argc, argv);
     if (j != 0) {
-        printf("ping: invalid option -- '%s'\n", argv[j]);
+        if (j == -1)
+            printf("ping: invalid option -- '%s'\n", argv[j]);
         return 1;
     }
 
@@ -214,6 +227,14 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
     // Send ICMP echo requests and receive replies
     while (1) {
+
+        if (count >= 0) {
+            printf("Debug : Count: %d\n", count);
+            if (count > 0)
+                count--;
+            else
+                return 0; // TODO Call the summary function
+        }
         ping_return = send_ping(sockfd, &addr, seq++);
         if (ping_return == -1) {
             printf("Debug : Ping failed\n"); //TODO print the ping usage
@@ -221,7 +242,8 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
         }
         if (audible == 1)
             printf("\7");
-        sleep(1);
+        if (count != 0) //permet de ne pas faire de sleep sur le dernier du count pour avoir un exit plus rapide
+            sleep(1);
     }
 
     // Close socket
