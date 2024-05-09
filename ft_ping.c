@@ -129,7 +129,7 @@ int arg_finder(int argc, char **argv) {
                     printf("ping: option requires an argument -- 'c'\n");
                 }
                 else
-                    printf("ping: invalid count of packets to transmit : `%s'\n", argv[i+1]);
+                    printf("ping: invalid count of packets to transmit: `%s'\n", argv[i+1]);
                     return 1;
                 }
             }
@@ -252,5 +252,6 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     return 0;
 }
 
-
+//TODO changer les flags pour le bon ping de inetutils-2.0
+// https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 //TODO les 5 flags à faire : -a -c -i -o -q
