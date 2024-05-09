@@ -1,5 +1,5 @@
 #include <stdio.h>
-// #include <stdlib.h>
+#include <stdlib.h>
 #include <unistd.h>
 // #include <sys/socket.h>
 // #include <netinet/in.h>
@@ -14,7 +14,7 @@
 
 int verbose = 0;
 int audible = 0;
-int count = 0;
+int count = -1;
 int timer = 1;
 int exit_after_reply = 0;
 int quiet = 0;
@@ -88,6 +88,17 @@ void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
         printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);
 }
 
+int isNum(char *str) {
+    int i = 0;
+
+    while (str[i] != '\0') {
+        if (str[i] < '0' || str[i] > '9')
+            return 1;
+        i++;
+    }
+    return 0;
+}
+
 int arg_finder(int argc, char **argv) {
 
     int i;
@@ -96,14 +107,18 @@ int arg_finder(int argc, char **argv) {
     while (i < argc) {
         if (argv[i][0] == '-')
         {
-            if (strcmp(argv[i], "-v") == 0) {
+            if (strcmp(argv[i], "-v") == 0) { // mandatory flag
                 verbose = 1;
             }
             else if (strcmp(argv[i], "-a") == 0) {
                 audible = 1;
             }
             else if (strcmp(argv[i], "-c") == 0) { //TODO intercepter le argv[i+1] pour garder le nombre de ping
-                count = 1; // nbr de count
+                // count = 1; // nbr de count
+                if (isNum(argv[i+1]) == 0 && argv[i+1]) {
+                    count = atoi(argv[i+1]);
+                    printf("Count: %d\n", count);
+                }
             }
             else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
                 // return i;
@@ -187,6 +202,8 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     // Send ICMP echo requests and receive replies
     while (1) {
         send_ping(sockfd, &addr, seq++);
+        if (audible == 1)
+            printf("\7");
         sleep(1);
     }
 
