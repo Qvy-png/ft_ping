@@ -40,7 +40,7 @@ unsigned short checksum(void *b, int len) {
 }
 
 // Send ICMP echo request and wait for response
-void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
+int send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
     char packet[PACKET_SIZE];
 
     //using icmp struct from ip_icmp.h
@@ -67,7 +67,7 @@ void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
     if (bytes_sent <= 0) {
 
         perror("sendto");
-        return;
+        return -1;
     }
 
     // Receive ICMP reply
@@ -75,7 +75,7 @@ void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
     bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, &addr_len);
     if (bytes_received <= 0) {
         perror("recvfrom");
-        return;
+        return -1;
     }
     // else if ( )
 
@@ -86,17 +86,20 @@ void send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
         printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
     else
         printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);
+    return 0;
 }
 
 int isNum(char *str) {
     int i = 0;
 
+    if (str == NULL)
+        return 0;
     while (str[i] != '\0') {
         if (str[i] < '0' || str[i] > '9')
-            return 1;
+            return 0;
         i++;
     }
-    return 0;
+    return 1;
 }
 
 int arg_finder(int argc, char **argv) {
@@ -110,14 +113,15 @@ int arg_finder(int argc, char **argv) {
             if (strcmp(argv[i], "-v") == 0) { // mandatory flag
                 verbose = 1;
             }
-            else if (strcmp(argv[i], "-a") == 0) {
+            else if (strcmp(argv[i], "-a") == 0) { //makes an audible ping
                 audible = 1;
             }
             else if (strcmp(argv[i], "-c") == 0) { //TODO intercepter le argv[i+1] pour garder le nombre de ping
                 // count = 1; // nbr de count
-                if (isNum(argv[i+1]) == 0 && argv[i+1]) {
+                if (isNum(argv[i+1])) {
                     count = atoi(argv[i+1]);
-                    printf("Count: %d\n", count);
+                    printf("Debug : Count: %d\n", count);
+                    i++;
                 }
             }
             else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
@@ -140,18 +144,25 @@ int arg_finder(int argc, char **argv) {
 int target_finder(int argc, char **argv) {
 
     int i;
+    int target_count = 0;
+    int found_target = -1;
 
     i = 1;
     while (i < argc) {
-        printf("Looking at target %s\n", argv[i]);
-        if (argv[i][0] == '-')
+        printf("Debug : Looking at target %s\n", argv[i]);
+        if (argv[i][0] == '-' || isNum(argv[i]))
             i++;
         else {
-            printf("Target: %s\n", argv[i]);
-            return i;
+            printf("Debug : Target: %s\n", argv[i]);
+            target_count++;
+            found_target = i;
+            i++;
         }
     }
-    return -1;
+    if (target_count > 1)
+        return -1;
+    else
+        return found_target;
 }
 
 int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
@@ -160,7 +171,9 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     struct sockaddr_in addr;
     int sockfd, seq = 0;
     int j = 0;
-    printf("%d\n", argc);
+    int ping_return = 0;
+
+    printf("Debug : argc: %d\n", argc);
 
     if (argc < 2) {
         printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
@@ -174,7 +187,7 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
     int foundTarget = 0;
     foundTarget = target_finder(argc, argv);
-    printf("Found target at index: %d\n", foundTarget);
+    printf("Debug : Found target at index: %d\n", foundTarget);
     if (foundTarget == -1) {
         printf("No target found\n");
         return 1;
@@ -201,7 +214,11 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
     // Send ICMP echo requests and receive replies
     while (1) {
-        send_ping(sockfd, &addr, seq++);
+        ping_return = send_ping(sockfd, &addr, seq++);
+        if (ping_return == -1) {
+            printf("Debug : Ping failed\n"); //TODO print the ping usage
+            return 1;
+        }
         if (audible == 1)
             printf("\7");
         sleep(1);
