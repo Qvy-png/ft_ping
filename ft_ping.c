@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 // #include <sys/socket.h>
 // #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
@@ -176,6 +177,17 @@ int target_finder(int argc, char **argv) {
         return found_target;
 }
 
+// void signal_time( void ) {
+
+//     struct sigaction act;
+
+//     bzero(&act, sizeof(act));
+	
+// 	act.sa_handler = &sa_handler;
+
+// 	sigaction(SIGINT, &act, NULL);
+// }
+
 int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
     struct hostent *host;
@@ -225,6 +237,8 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
     addr.sin_family = AF_INET;
     addr.sin_addr = *((struct in_addr *) host->h_addr);
 
+    // signal_time(); //TODO
+
     // Send ICMP echo requests and receive replies
     while (1) {
 
@@ -254,4 +268,13 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
+
+//TODO intercepter les signaux
+
+//TODO get all info from the send_ping function to be able to write down the statistics
+//time = adding up all the ms + number of ms from the intervals
+//packets transmitted = packages sent
+//received = replies from the ip
+//packet loss = number of times there was no reply
+
 //TODO les 5 flags à faire : -a -c -i -o -q
