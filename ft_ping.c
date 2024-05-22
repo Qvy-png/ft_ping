@@ -269,6 +269,8 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 
+// -c -i -q 
+
 //TODO intercepter les signaux
 
 //TODO get all info from the send_ping function to be able to write down the statistics
