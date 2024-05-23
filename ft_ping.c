@@ -16,7 +16,7 @@
 int verbose = 0;
 int audible = 0;
 int count = -1;
-int timer = 1;
+float timer = 1;
 int exit_after_reply = 0;
 int quiet = 0;
 
@@ -103,6 +103,21 @@ int isNum(char *str) {
     return 1;
 }
 
+int isFloat(char *str) {
+
+    int i = 0;
+
+    if (str == NULL)
+        return 0;
+    while (str[i] != '\0') {
+        if ((str[i] < '0' || str[i] > '9') && str[i] != '.')
+            return 0;
+        i++;
+    }
+
+    return 1;
+}
+
 int arg_finder(int argc, char **argv) {
 
     int i;
@@ -124,18 +139,33 @@ int arg_finder(int argc, char **argv) {
                     printf("Debug : Count: %d\n", count);
                     i++;
                 }
-                else { 
-                if (argv[i+1] == NULL){
-                    //TODO print usage, replacing the current message
-                    printf("ping: option requires an argument -- 'c'\n");
-                }
-                else
-                    printf("ping: invalid count of packets to transmit: `%s'\n", argv[i+1]);
+                else {
+                    if (argv[i+1] == NULL){
+                        //TODO print usage, replacing the current message
+                        printf("ping: option requires an argument -- 'c'\n");
+                    }
+                    else
+                        printf("ping: invalid count of packets to transmit: `%s'\n", argv[i+1]);
                     return 1;
                 }
             }
             else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
-                // return i;
+                printf("well hello there ! ");
+                if (isFloat(argv[i+1])) {
+                    timer = atof(argv[i+1]);
+                    printf("Debug : Timer: %f\n", timer);
+                    
+                    i++;
+                }
+                else {
+                    if (argv[i+1] == NULL){
+                        //TODO print usage, replacing the current message
+                        printf("ping: option requires an argument -- 'i'\n");
+                    }
+                    else
+                        printf("ping: invalid interval time: `%s'\n", argv[i+1]);
+                    return 1;
+                }
             }
             else if (strcmp(argv[i], "-o") == 0) { //TODO exit after a single reply packet
                 count = 1;
@@ -160,7 +190,7 @@ int target_finder(int argc, char **argv) {
     i = 1;
     while (i < argc) {
         printf("Debug : Looking at target %s\n", argv[i]);
-        if (argv[i][0] == '-' || isNum(argv[i]))
+        if (argv[i][0] == '-' || isFloat(argv[i]))
             i++;
         else {
             printf("Debug : Target: %s\n", argv[i]);
@@ -257,7 +287,7 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
         if (audible == 1)
             printf("\7");
         if (count != 0) //permet de ne pas faire de sleep sur le dernier du count pour avoir un exit plus rapide
-            sleep(1);
+            sleep(timer);
     }
 
     // Close socket
@@ -269,7 +299,7 @@ int main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 
-// -c -i -q 
+// -c -i -q -f
 
 //TODO intercepter les signaux
 
