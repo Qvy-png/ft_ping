@@ -132,7 +132,7 @@ int arg_finder(int argc, char **argv) {
             else if (strcmp(argv[i], "-a") == 0) { //makes an audible ping
                 audible = 1;
             }
-            else if (strcmp(argv[i], "-c") == 0) { //TODO intercepter le argv[i+1] pour garder le nombre de ping
+            else if (strcmp(argv[i], "-c") == 0) {
                 // count = 1; // nbr de count
                 if (isNum(argv[i+1])) {
                     count = atoi(argv[i+1]);
@@ -149,7 +149,7 @@ int arg_finder(int argc, char **argv) {
                     return 1;
                 }
             }
-            else if (strcmp(argv[i], "-i") == 0) { //TODO intercepter le argv[i+1] pour garder le temps
+            else if (strcmp(argv[i], "-i") == 0) {
                 printf("well hello there ! ");
                 if (isFloat(argv[i+1])) {
                     timer = atof(argv[i+1]);
@@ -167,8 +167,8 @@ int arg_finder(int argc, char **argv) {
                     return 1;
                 }
             }
-            else if (strcmp(argv[i], "-o") == 0) { //TODO exit after a single reply packet
-                count = 1;
+            else if (strcmp(argv[i], "-f") == 0) { //TODO flood mode, no waiting time and only displays one dot while flooding
+                
             }
             else if (strcmp(argv[i], "-q") == 0) { //TODO retirer les messages de ping
                 quiet = 1;
