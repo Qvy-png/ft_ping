@@ -7,6 +7,15 @@ int		count = -1;
 float	timer = 1;
 int		exit_after_reply = 0;
 int		quiet = 0;
+char	*target_name;
+
+// plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
+// values for final message
+double	max = 0;
+double	min = 0;
+int		num_pings = 0;
+double	total_time = 0;
+double	mdev = 0;
 
 // Calculate checksum for ICMP packet
 unsigned short checksum(void *b, int len) {
@@ -29,7 +38,7 @@ unsigned short checksum(void *b, int len) {
 }
 
 // Send ICMP echo request and wait for response
-int send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
+int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 
 	char packet[PACKET_SIZE];
 	// using icmp struct from ip_icmp.h
@@ -38,8 +47,6 @@ int send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 	int bytes_sent, bytes_received;
 	socklen_t addr_len;
 	double rtt;
-
-	// final message
 
 	// Prepare ICMP header
 	icmp_hdr = (struct icmp *) packet;
@@ -55,28 +62,41 @@ int send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 
 	// Send ICMP packet
 	bytes_sent = sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, sizeof(*addr));
-	if (bytes_sent <= 0) {
-
+	if (bytes_sent <= 0)
+	{
 		perror("sendto");
-		return -1;
+		return (-1);
 	}
 
 	// Receive ICMP reply
 	addr_len = sizeof(*addr);
 	bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, &addr_len);
-	if (bytes_received <= 0) {
+	if (bytes_received <= 0)
+	{
 		perror("recvfrom");
-		return -1;
+		return (-1);
 	}
 	// else if ( )
 
 	// Calculate RTT
 	gettimeofday(&end, NULL);
 	rtt = (double) (end.tv_usec - start.tv_usec) / 1000.0;
+
+	// preparations for the final message
+	if (rtt > max)
+		max = rtt;
+	if (rtt < min || min == 0)
+		min = rtt;
+	num_pings++;
+	total_time = total_time + rtt;
+	mdev = max - min;
+	//
+
 	if (verbose)
 		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
 	else
 		printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);
+	
 	return 0;
 }
 
@@ -169,10 +189,26 @@ int target_finder(int argc, char **argv) {
 		return found_target;
 }
 
+void	print_stats(void)
+{
+	printf("\n--- %s ping statistics ---\n", target_name);
+	printf("%d packets transmitted, \n", num_pings);
+}
+
 void	signal_time(int signal)	{
 
 	if (signal == 2)
-		printf("This is the count : %d\n", count);
+	{
+		printf("This is the max : %f\n", max);
+		printf("This is the min : %f\n", min);
+		printf("This is the average : %f\n", total_time / num_pings);
+		printf("This is the num_ping : %d\n", num_pings);
+		printf("This is the mdev : %f IS WRONG\n", mdev);
+		printf("This is the target_name : %s\n", target_name);
+
+		print_stats();
+		free(target_name);
+	}
 	exit(0);
 }
 
@@ -210,6 +246,7 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
 	// Resolve hostname to IP address
 	host = gethostbyname(argv[foundTarget]);
+	target_name = strdup(argv[foundTarget]);
 	if (host == NULL) {
 		printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]);
 		return (1);
@@ -261,8 +298,6 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 
 // -c -i -q -f
-
-//TODO intercepter les signaux
 
 //TODO get all info from the send_ping function to be able to write down the statistics
 //time = adding up all the ms + number of ms from the intervals
