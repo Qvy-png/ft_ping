@@ -1,24 +1,26 @@
 #include "../includes/ft_ping.h"
 
 // global variables
-int		verbose = 0;
-int		audible = 0;
-int		count = -1;
-float	timer = 1;
-int		exit_after_reply = 0;
-int		quiet = 0;
-char	*target_name;
+int						verbose = 0;
+int						audible = 0;
+int						count = -1;
+float					timer = 1;
+int						exit_after_reply = 0;
+int						quiet = 0;
+char					*target_name;
 
 // plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
 // values for final message
-double	max = 0;
-double	min = 0;
-int		num_pings = 0;
-double	total_time = 0;
-double	mdev = 0;
+double					max = 0;
+double					min = 0;
+double					total_time = 0;
+double					mdev = 0;
+long long unsigned int	num_pings = 0;
+long long unsigned int	received_packets;
+
 
 // Calculate checksum for ICMP packet
-unsigned short checksum(void *b, int len) {
+unsigned short	checksum(void *b, int len) {
 
 	unsigned short *buf = b;
 	unsigned int sum = 0;
@@ -78,6 +80,7 @@ int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 		perror("recvfrom");
 		return (-1);
 	}
+	received_packets++;
 	// else if ( )
 
 	// Calculate RTT
@@ -120,7 +123,6 @@ int arg_finder(int argc, char **argv) {
 				// count = 1; // nbr de count
 				if (is_num(argv[i+1])) {
 					count = atoi(argv[i+1]);
-					printf("Debug : Count: %d\n", count);
 					i++;
 				}
 				else {
@@ -173,18 +175,14 @@ int target_finder(int argc, char **argv) {
 
 	i = 1;
 	while (i < argc) {
-		printf("Debug : Looking at target %s\n", argv[i]);
 		if (argv[i][0] == '-' || is_float(argv[i]))
 			i++;
 		else {
-			printf("Debug : Target: %s\n", argv[i]);
 			target_count++;
 			found_target = i;
 			i++;
 		}
 	}
-
-	printf("Debug : Target count: %d\n", target_count);
 	if (target_count > 1)
 		return -1;
 	else
@@ -194,20 +192,14 @@ int target_finder(int argc, char **argv) {
 void	print_stats(void)
 {
 	printf("\n--- %s ping statistics ---\n", target_name);
-	printf("%d packets transmitted, \n", num_pings);
+	printf("%lld packets transmitted, %lld received, %LG%% packet loss\n", num_pings, received_packets, 100 - (((long double)received_packets / (long double)num_pings) * 100));
+	printf("rtt min/avg/max/mdev = %g/%g/%g/%g ms\n", min, total_time / num_pings, max, mdev);
 }
 
 void	signal_time(int signal)	{
 
 	if (signal == 2)
 	{
-		printf("This is the max : %f\n", max);
-		printf("This is the min : %f\n", min);
-		printf("This is the average : %f\n", total_time / num_pings);
-		printf("This is the num_ping : %d\n", num_pings);
-		printf("This is the mdev : %f IS WRONG\n", mdev);
-		printf("This is the target_name : %s\n", target_name);
-
 		print_stats();
 		free(target_name);
 	}
@@ -222,10 +214,7 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 	int j = 0;
 	int ping_return = 0;
 	unsigned int end = 0;
-
 	(void)end;
-
-	printf("Debug : argc: %d\n", argc);
 
 	if (argc < 2) {
 		printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
@@ -240,7 +229,6 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 
 	int foundTarget = 0;
 	foundTarget = target_finder(argc, argv);
-	printf("Debug : Found target at index: %d\n", foundTarget);
 	if (foundTarget == -1) {
 		printf("No target found\n");
 		return 1;
