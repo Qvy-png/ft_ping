@@ -40,16 +40,18 @@ unsigned short checksum(void *b, int len) {
 // Send ICMP echo request and wait for response
 int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 
-	char packet[PACKET_SIZE];
+
 	// using icmp struct from ip_icmp.h
-	struct icmp *icmp_hdr;
-	struct timeval start, end;
-	int bytes_sent, bytes_received;
-	socklen_t addr_len;
-	double rtt;
+	struct		icmp *icmp_hdr;
+	char		packet[PACKET_SIZE];
+	struct		timeval start, end;
+	int			bytes_sent, bytes_received;
+	socklen_t	addr_len;
+	double		rtt;
 
 	// Prepare ICMP header
 	icmp_hdr = (struct icmp *) packet;
+	memset(icmp_hdr, 0, PACKET_SIZE);
 	icmp_hdr->icmp_type = ICMP_ECHO;
 	icmp_hdr->icmp_code = 0;
 	icmp_hdr->icmp_id = getpid();
