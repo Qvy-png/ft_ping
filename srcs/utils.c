@@ -42,27 +42,17 @@ void	list_push(t_mean **head, double value)
     *head = new_node;
 }
 
-void	print_list(t_mean **head, long long unsigned int size)
-{
-	t_mean					*tmp = *head;
-	long long unsigned int	i = 1;
-
-	while (i <= size)
-	{
-		printf("%g\n", tmp->value);
-		tmp = tmp->next;
-		i++;
-	}
-}
-
 void	free_list(t_mean *head)
 {
 	t_mean	*tmp;
-
-	while (head)
+	
+	if (!head)
+		return;
+	while (head->next != NULL)
 	{
 		tmp = head->next;
 		free(head);
 		head = tmp;
 	}
+	free(head);
 }

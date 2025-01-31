@@ -19,8 +19,7 @@ long long unsigned int	num_pings = 0;
 long long unsigned int	received_packets;
 
 time_t begin;
- struct timeval stop, start;
-
+struct timeval stop, start;
 
 // special mdev
 t_mean *value_list;
