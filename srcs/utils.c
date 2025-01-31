@@ -59,10 +59,10 @@ void	free_list(t_mean *head)
 {
 	t_mean	*tmp;
 
-	while (head != NULL)
+	while (head)
 	{
-		tmp = head;
-		head = head->next;
-		free(tmp);
+		tmp = head->next;
+		free(head);
+		head = tmp;
 	}
 }

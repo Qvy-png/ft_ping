@@ -229,7 +229,7 @@ void	signal_time(int signal)
 	{
 		print_stats();
 		free(target_name);
-		// free_list(value_list);
+		free_list(value_list);
 	}
 	exit(0);
 }
@@ -299,7 +299,12 @@ int		main(int argc, char **argv)
 			if (count > 0)
 				count--;
 			else
+			{
+				print_stats();
+				free_list(value_list);
+				free(target_name);
 				return 0; // TODO Call the summary function
+			}
 		}
 		ping_return = send_ping(sockfd, &addr, seq++);
 		if (ping_return == -1) {
@@ -314,7 +319,8 @@ int		main(int argc, char **argv)
 
 	// Close socket
 	close(sockfd);
-
+	free_list(value_list);
+	free(target_name);
 	return 0;
 }
 
