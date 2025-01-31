@@ -14,8 +14,18 @@
 # include <netdb.h>
 # include <string.h>
 # include <sys/time.h>
+# include <time.h>
+
+typedef struct s_mean{
+
+    double value;
+    struct s_mean *next;
+} t_mean;
 
 int		is_num(char *str);
 int		is_float(char *str);
+void    list_push(t_mean **head, double value);
+void	print_list(t_mean **head, long long unsigned int size);
+void	free_list(t_mean *head);
 
 #endif

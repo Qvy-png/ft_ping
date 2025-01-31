@@ -18,6 +18,12 @@ double					mdev = 0;
 long long unsigned int	num_pings = 0;
 long long unsigned int	received_packets;
 
+time_t begin;
+ struct timeval stop, start;
+
+
+// special mdev
+t_mean *value_list;
 
 // Calculate checksum for ICMP packet
 unsigned short	checksum(void *b, int len) {
@@ -96,7 +102,7 @@ int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 	total_time = total_time + rtt;
 	mdev = max - min;
 	//
-
+	list_push(&value_list, rtt);
 	if (verbose)
 		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
 	else
@@ -167,8 +173,8 @@ int arg_finder(int argc, char **argv) {
 	return 0;
 }
 
-int target_finder(int argc, char **argv) {
-
+int target_finder(int argc, char **argv)
+{
 	int		i;
 	int		target_count = 0;
 	int		found_target = -1;
@@ -189,25 +195,47 @@ int target_finder(int argc, char **argv) {
 		return found_target;
 }
 
+void	mdev_calculation(t_mean **head)
+{
+	double					mean = total_time/num_pings;
+	long long unsigned int	i = 1;
+	t_mean					*tmp = *head;
+
+	while(i <= num_pings)
+	{
+		if ((tmp->value - mean) < 0)
+			mdev -= (tmp->value - mean);
+		else
+			mdev += (tmp->value - mean);
+		tmp = tmp->next;
+		i++;
+	}
+	mdev /= num_pings;
+}
+
 void	print_stats(void)
 {
+	gettimeofday(&stop, NULL);
+	
+	mdev_calculation(&value_list);
 	printf("\n--- %s ping statistics ---\n", target_name);
-	printf("%lld packets transmitted, %lld received, %LG%% packet loss\n", num_pings, received_packets, 100 - (((long double)received_packets / (long double)num_pings) * 100));
+	printf("%lld packets transmitted, %lld received, %LG%% packet loss, time %lu ms\n", num_pings, received_packets, 100 - (((long double)received_packets / (long double)num_pings) * 100), ((stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec )/1000);
 	printf("rtt min/avg/max/mdev = %g/%g/%g/%g ms\n", min, total_time / num_pings, max, mdev);
 }
 
-void	signal_time(int signal)	{
-
+void	signal_time(int signal)
+{
 	if (signal == 2)
 	{
 		print_stats();
 		free(target_name);
+		// free_list(value_list);
 	}
 	exit(0);
 }
 
-int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
-
+int		main(int argc, char **argv) 
+{
 	struct hostent *host;
 	struct sockaddr_in addr;
 	int sockfd, seq = 0;
@@ -234,6 +262,10 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 		return 1;
 	}
 
+	//TODO
+	begin =	time( NULL );
+  	gettimeofday(&start, NULL);
+
 	// Resolve hostname to IP address
 	host = gethostbyname(argv[foundTarget]);
 	target_name = strdup(argv[foundTarget]);
@@ -253,6 +285,8 @@ int		main(int argc, char **argv) { //TODO signal handler pour ctrl+c
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr = *((struct in_addr *) host->h_addr);
+
+	value_list = malloc(sizeof(t_mean));
 
 	// Signal
 	signal(SIGINT, signal_time);
