@@ -54,7 +54,7 @@ void	free_list(t_mean *head)
 	}
 }
 
-// TODO finish usage
+// TODO finish usage with the correct flags -i -c -q -f
 void	print_usage(void)
 {
 	printf("Usage\n");

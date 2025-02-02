@@ -149,8 +149,8 @@ int arg_finder(int argc, char **argv) {
 				}
 				else {
 					if (argv[i+1] == NULL){
-						//TODO print usage, replacing the current message
 						printf("ping: option requires an argument -- 'i'\n");
+						print_usage();
 					}
 					else
 						printf("ping: invalid interval time: `%s'\n", argv[i+1]);
