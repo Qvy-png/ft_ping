@@ -45,14 +45,21 @@ void	list_push(t_mean **head, double value)
 void	free_list(t_mean *head)
 {
 	t_mean	*tmp;
-	
-	if (!head)
-		return;
-	while (head->next != NULL)
+
+	while (head != NULL)
 	{
-		tmp = head->next;
-		free(head);
-		head = tmp;
+		tmp = head;
+		head = head->next;
+		free(tmp);
 	}
-	free(head);
+}
+
+// TODO finish usage
+void	print_usage(void)
+{
+	printf("Usage\n");
+	printf("  ./ft_ping [options] <destination>\n\n");
+	printf("Options:\n");
+	printf("  <destination>    DNS name or IP address\n");
+	printf("  -c <count>       stop after <count> replies\n");
 }

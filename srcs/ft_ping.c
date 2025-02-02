@@ -22,7 +22,7 @@ time_t begin;
 struct timeval stop, start;
 
 // special mdev
-t_mean *value_list;
+t_mean *value_list = NULL;
 
 // Calculate checksum for ICMP packet
 unsigned short	checksum(void *b, int len) {
@@ -101,6 +101,7 @@ int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 	total_time = total_time + rtt;
 	mdev = max - min;
 	//
+
 	list_push(&value_list, rtt);
 	if (verbose)
 		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
@@ -121,31 +122,29 @@ int arg_finder(int argc, char **argv) {
 			if (strcmp(argv[i], "-v") == 0) { // mandatory flag
 				verbose = 1;
 			}
-			else if (strcmp(argv[i], "-a") == 0) { //makes an audible ping
+			else if (strcmp(argv[i], "-a") == 0) { // makes an audible ping
 				audible = 1;
 			}
-			else if (strcmp(argv[i], "-c") == 0) {
-				// count = 1; // nbr de count
+			else if (strcmp(argv[i], "-c") == 0) { // pings only <count> times
 				if (is_num(argv[i+1])) {
 					count = atoi(argv[i+1]);
 					i++;
 				}
-				else {
-					if (argv[i+1] == NULL){
-						//TODO print usage, replacing the current message
-						printf("ping: option requires an argument -- 'c'\n");
+				else
+				{
+					if (argv[i+1] == NULL)
+					{
+						printf("ping: option requires an argument -- 'c'\n\n");
+						print_usage();
 					}
 					else
 						printf("ping: invalid count of packets to transmit: `%s'\n", argv[i+1]);
-					return 1;
+					return (1);
 				}
 			}
 			else if (strcmp(argv[i], "-i") == 0) {
-				printf("well hello there ! ");
 				if (is_float(argv[i+1])) {
-					timer = atof(argv[i+1]);
-					printf("Debug : Timer: %f\n", timer);
-					
+					timer = atof(argv[i+1]);					
 					i++;
 				}
 				else {
@@ -228,6 +227,7 @@ void	signal_time(int signal)
 	{
 		print_stats();
 		free(target_name);
+		// print_list(&value_list);
 		free_list(value_list);
 	}
 	exit(0);
@@ -286,6 +286,10 @@ int		main(int argc, char **argv)
 	addr.sin_addr = *((struct in_addr *) host->h_addr);
 
 	value_list = malloc(sizeof(t_mean));
+	if (value_list == NULL)
+		return (1);
+	if (value_list)
+		memset(value_list, 0, sizeof(t_mean));
 
 	// Signal
 	signal(SIGINT, signal_time);
@@ -294,7 +298,6 @@ int		main(int argc, char **argv)
 	while (1) {
 
 		if (count >= 0) {
-			printf("Debug : Count: %d\n", count);
 			if (count > 0)
 				count--;
 			else

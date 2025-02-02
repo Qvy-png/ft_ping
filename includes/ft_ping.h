@@ -26,5 +26,6 @@ int		is_num(char *str);
 int		is_float(char *str);
 void    list_push(t_mean **head, double value);
 void	free_list(t_mean *head);
+void	print_usage(void);
 
 #endif
