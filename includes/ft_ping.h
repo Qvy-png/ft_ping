@@ -1,7 +1,7 @@
 #ifndef FT_PING_H
 # define FT_PING_H
 # define PACKET_SIZE	64
-# define PING_TIMEOUT	2
+// # define PING_TIMEOUT	2
 
 # include <stdio.h>
 # include <stdlib.h>

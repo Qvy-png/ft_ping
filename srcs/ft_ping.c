@@ -8,6 +8,7 @@ int						audible = 0;
 int						count = -1;
 float					timer = 1;
 int						quiet = 0;
+int						flood = 1;
 
 // plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
 // values for final message
@@ -92,9 +93,10 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	mdev = max - min;
 
 	list_push(&value_list, rtt);
+
 	if (verbose)
 		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
-	else
+	else //TODO changer le code pour me rapprocher du ping officiel
 		printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);	
 	return (0);
 }
@@ -110,6 +112,8 @@ int arg_finder(int argc, char **argv)
 		{
 			if (strcmp(argv[i], "-v") == 0) // mandatory flag
 				verbose = 1;
+			else if (strcmp(argv[i], "-?") == 0)
+				print_usage();
 			else if (strcmp(argv[i], "-a") == 0) // makes an audible ping
 				audible = 1;
 			else if (strcmp(argv[i], "-c") == 0) // pings only <count> times
@@ -130,29 +134,6 @@ int arg_finder(int argc, char **argv)
 						printf("ping: invalid count of packets to transmit: `%s'\n", argv[i+1]);
 					return (1);
 				}
-			}
-			else if (strcmp(argv[i], "-i") == 0)
-			{
-				if (is_float(argv[i+1]))
-				{
-					timer = atof(argv[i+1]);					
-					i++;
-				}
-				else
-				{
-					if (argv[i+1] == NULL)
-					{
-						printf("ping: option requires an argument -- 'i'\n");
-						print_usage();
-					}
-					else
-						printf("ping: invalid interval time: `%s'\n", argv[i+1]);
-					return (1);
-				}
-			}
-			else if (strcmp(argv[i], "-f") == 0)
-			{
-				//TODO flood mode, no waiting time and only displays one dot while flooding
 			}
 			else if (strcmp(argv[i], "-q") == 0) //TODO retirer les messages de ping
 				quiet = 1;
@@ -245,7 +226,6 @@ int		main(int argc, char **argv)
 	j = arg_finder(argc, argv);
 	if (j != 0)
 	{
-		printf("ping: invalid option -- '%s'\n", argv[j]);
 		return (1);
 	}
 	foundTarget = target_finder(argc, argv);
@@ -311,13 +291,18 @@ int		main(int argc, char **argv)
 		if (audible == 1)
 			printf("\7");
 		if (count != 0)
-			sleep(timer);
+		{
+			// if (flood == 1)
+				sleep(timer);
+		}
 	}
 	close(sockfd);
 	free_list(value_list);
 	free(target_name);
 	return (0);
 }
+
+// TODO retirer les flag -i et -f
 
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html

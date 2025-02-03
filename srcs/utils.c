@@ -54,7 +54,7 @@ void	free_list(t_mean *head)
 	}
 }
 
-// TODO finish usage with the correct flags -i -c -q -f
+// TODO finish usage with the correct flags -c -q -n
 void	print_usage(void)
 {
 	printf("Usage\n");
@@ -62,9 +62,8 @@ void	print_usage(void)
 	printf("Options:\n");
 	printf("  <destination>      DNS name or IP address\n");
 	printf("  -c <count>         stop after <count> replies\n");
-	printf("  -f                 floor ping\n");
-	printf("  -i <interval>      seconds between sending each packet\n");
 	printf("  -q                 quiet output\n");
-
+	printf("  -n                 quiet output\n");
+	printf("  -?                 print usage\n");
 	
 }
