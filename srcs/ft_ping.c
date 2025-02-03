@@ -157,7 +157,7 @@ int arg_finder(int argc, char **argv)
 			else if (strcmp(argv[i], "-q") == 0) //TODO retirer les messages de ping
 				quiet = 1;
 			else
-				return (-1);
+				return (i);
 		}
 		i++;
 	}
@@ -240,13 +240,12 @@ int		main(int argc, char **argv)
 	if (argc < 2)
 	{
 		printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
-		return 1;
+		return (1);
 	}
 	j = arg_finder(argc, argv);
 	if (j != 0)
 	{
-		if (j == -1)
-			printf("ping: invalid option -- '%s'\n", argv[j]);
+		printf("ping: invalid option -- '%s'\n", argv[j]);
 		return (1);
 	}
 	foundTarget = target_finder(argc, argv);
