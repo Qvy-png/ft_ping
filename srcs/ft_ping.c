@@ -1,58 +1,55 @@
 #include "../includes/ft_ping.h"
 
 // global variables
+int						exit_after_reply = 0;
+char					*target_name;
 int						verbose = 0;
 int						audible = 0;
 int						count = -1;
 float					timer = 1;
-int						exit_after_reply = 0;
 int						quiet = 0;
-char					*target_name;
 
 // plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
 // values for final message
+long long unsigned int	received_packets;
+double					total_time = 0;
+long long unsigned int	num_pings = 0;
+double					mdev = 0;
 double					max = 0;
 double					min = 0;
-double					total_time = 0;
-double					mdev = 0;
-long long unsigned int	num_pings = 0;
-long long unsigned int	received_packets;
 
-time_t begin;
-struct timeval stop, start;
+struct timeval			stop, start;
+time_t					begin;
 
 // special mdev
-t_mean *value_list = NULL;
+t_mean					*value_list = NULL;
 
 // Calculate checksum for ICMP packet
-unsigned short	checksum(void *b, int len) {
-
-	unsigned short *buf = b;
-	unsigned int sum = 0;
-	unsigned short result;
+unsigned short	checksum(void *b, int len)
+{
+	unsigned short	*buf = b;
+	unsigned int	sum = 0;
+	unsigned short	result;
 
 	for (sum = 0; len > 1; len -= 2)
 		sum += *buf++;
-
 	if (len == 1)
 		sum += *(unsigned char *)buf;
-
 	sum = (sum >> 16) + (sum & 0xFFFF);
 	sum += (sum >> 16);
 	result = ~sum;
-
-	return result;
+	return (result);
 }
 
 // Send ICMP echo request and wait for response
-int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
-
-
+int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
+{
 	// using icmp struct from ip_icmp.h
-	struct		icmp *icmp_hdr;
 	char		packet[PACKET_SIZE];
 	struct		timeval start, end;
-	int			bytes_sent, bytes_received;
+	struct		icmp *icmp_hdr;
+	int			bytes_received;
+	int			bytes_sent;
 	socklen_t	addr_len;
 	double		rtt;
 
@@ -72,27 +69,20 @@ int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 	// Send ICMP packet
 	bytes_sent = sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, sizeof(*addr));
 	if (bytes_sent <= 0)
-	{
-		perror("sendto");
-		return (-1);
-	}
+		return (perror("sendto"), -1);
 
 	// Receive ICMP reply
 	addr_len = sizeof(*addr);
 	bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, &addr_len);
 	if (bytes_received <= 0)
-	{
-		perror("recvfrom");
-		return (-1);
-	}
+		return (perror("recvfrom\n"), -1);
 	received_packets++;
-	// else if ( )
 
 	// Calculate RTT
 	gettimeofday(&end, NULL);
-	rtt = (double) (end.tv_usec - start.tv_usec) / 1000.0;
+	if (end.tv_usec >= start.tv_usec)
+		rtt = (double) (end.tv_usec - start.tv_usec) / 1000.0;
 
-	// preparations for the final message
 	if (rtt > max)
 		max = rtt;
 	if (rtt < min || min == 0)
@@ -100,33 +90,32 @@ int 	send_ping(int sockfd, struct sockaddr_in *addr, int seq) {
 	num_pings++;
 	total_time = total_time + rtt;
 	mdev = max - min;
-	//
 
 	list_push(&value_list, rtt);
 	if (verbose)
 		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
 	else
-		printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);
-	
-	return 0;
+		printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);	
+	return (0);
 }
 
-int arg_finder(int argc, char **argv) {
-
-	int i;
+int arg_finder(int argc, char **argv)
+{
+	int	i;
 
 	i = 0;
-	while (i < argc) {
+	while (i < argc)
+	{
 		if (argv[i][0] == '-')
 		{
-			if (strcmp(argv[i], "-v") == 0) { // mandatory flag
+			if (strcmp(argv[i], "-v") == 0) // mandatory flag
 				verbose = 1;
-			}
-			else if (strcmp(argv[i], "-a") == 0) { // makes an audible ping
+			else if (strcmp(argv[i], "-a") == 0) // makes an audible ping
 				audible = 1;
-			}
-			else if (strcmp(argv[i], "-c") == 0) { // pings only <count> times
-				if (is_num(argv[i+1])) {
+			else if (strcmp(argv[i], "-c") == 0) // pings only <count> times
+			{
+				if (is_num(argv[i+1]))
+				{
 					count = atoi(argv[i+1]);
 					i++;
 				}
@@ -142,62 +131,68 @@ int arg_finder(int argc, char **argv) {
 					return (1);
 				}
 			}
-			else if (strcmp(argv[i], "-i") == 0) {
-				if (is_float(argv[i+1])) {
+			else if (strcmp(argv[i], "-i") == 0)
+			{
+				if (is_float(argv[i+1]))
+				{
 					timer = atof(argv[i+1]);					
 					i++;
 				}
-				else {
-					if (argv[i+1] == NULL){
+				else
+				{
+					if (argv[i+1] == NULL)
+					{
 						printf("ping: option requires an argument -- 'i'\n");
 						print_usage();
 					}
 					else
 						printf("ping: invalid interval time: `%s'\n", argv[i+1]);
-					return 1;
+					return (1);
 				}
 			}
-			else if (strcmp(argv[i], "-f") == 0) { //TODO flood mode, no waiting time and only displays one dot while flooding
-				
+			else if (strcmp(argv[i], "-f") == 0)
+			{
+				//TODO flood mode, no waiting time and only displays one dot while flooding
 			}
-			else if (strcmp(argv[i], "-q") == 0) { //TODO retirer les messages de ping
+			else if (strcmp(argv[i], "-q") == 0) //TODO retirer les messages de ping
 				quiet = 1;
-			}
 			else
-				return -1;
+				return (-1);
 		}
 		i++;
 	}
-	return 0;
+	return (0);
 }
 
 int target_finder(int argc, char **argv)
 {
-	int		i;
-	int		target_count = 0;
 	int		found_target = -1;
+	int		target_count = 0;
+	int		i;
 
 	i = 1;
-	while (i < argc) {
+	while (i < argc)
+	{
 		if (argv[i][0] == '-' || is_float(argv[i]))
 			i++;
-		else {
+		else
+		{
 			target_count++;
 			found_target = i;
 			i++;
 		}
 	}
 	if (target_count > 1)
-		return -1;
+		return (-1);
 	else
-		return found_target;
+		return (found_target);
 }
 
 void	mdev_calculation(t_mean **head)
 {
 	double					mean = total_time/num_pings;
-	long long unsigned int	i = 1;
 	t_mean					*tmp = *head;
+	long long unsigned int	i = 1;
 
 	while(i <= num_pings)
 	{
@@ -214,11 +209,10 @@ void	mdev_calculation(t_mean **head)
 void	print_stats(void)
 {
 	gettimeofday(&stop, NULL);
-	
 	mdev_calculation(&value_list);
 	printf("\n--- %s ping statistics ---\n", target_name);
 	printf("%lld packets transmitted, %lld received, %LG%% packet loss, time %lu ms\n", num_pings, received_packets, 100 - (((long double)received_packets / (long double)num_pings) * 100), ((stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec )/1000);
-	printf("rtt min/avg/max/mdev = %g/%g/%g/%g ms\n", min, total_time / num_pings, max, mdev);
+	printf("rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n", min, total_time / num_pings, max, mdev);
 }
 
 void	signal_time(int signal)
@@ -227,7 +221,6 @@ void	signal_time(int signal)
 	{
 		print_stats();
 		free(target_name);
-		// print_list(&value_list);
 		free_list(value_list);
 	}
 	exit(0);
@@ -235,34 +228,35 @@ void	signal_time(int signal)
 
 int		main(int argc, char **argv) 
 {
-	struct hostent *host;
-	struct sockaddr_in addr;
-	int sockfd, seq = 0;
-	int j = 0;
-	int ping_return = 0;
-	unsigned int end = 0;
-	(void)end;
+	int					sockfd, seq = 0;
+	int 				ping_return = 0;
+	int					foundTarget = 0;
+	unsigned int		end = 0;
+	int 				j = 0;
+	struct hostent		*host;
+	struct sockaddr_in	addr;
 
-	if (argc < 2) {
+	(void)end;
+	if (argc < 2)
+	{
 		printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
 		return 1;
 	}
 	j = arg_finder(argc, argv);
-	if (j != 0) {
+	if (j != 0)
+	{
 		if (j == -1)
 			printf("ping: invalid option -- '%s'\n", argv[j]);
 		return (1);
 	}
-
-	int foundTarget = 0;
 	foundTarget = target_finder(argc, argv);
-	if (foundTarget == -1) {
+	if (foundTarget == -1)
+	{
 		printf("No target found\n");
-		return 1;
+		return (1);
 	}
 
-	//TODO
-	begin =	time( NULL );
+	begin =	time(NULL);
   	gettimeofday(&start, NULL);
 
 	// Resolve hostname to IP address
@@ -275,7 +269,8 @@ int		main(int argc, char **argv)
 
 	// Create socket
 	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-	if (sockfd < 0) {
+	if (sockfd < 0)
+	{
 		perror("socket");
 		return (1);
 	}
@@ -284,7 +279,6 @@ int		main(int argc, char **argv)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr = *((struct in_addr *) host->h_addr);
-
 	value_list = malloc(sizeof(t_mean));
 	if (value_list == NULL)
 		return (1);
@@ -295,9 +289,10 @@ int		main(int argc, char **argv)
 	signal(SIGINT, signal_time);
 
 	// Send ICMP echo requests and receive replies
-	while (1) {
-
-		if (count >= 0) {
+	while (1)
+	{
+		if (count >= 0)
+		{
 			if (count > 0)
 				count--;
 			else
@@ -305,31 +300,31 @@ int		main(int argc, char **argv)
 				print_stats();
 				free_list(value_list);
 				free(target_name);
-				return 0; // TODO Call the summary function
+				return (0);
 			}
 		}
 		ping_return = send_ping(sockfd, &addr, seq++);
-		if (ping_return == -1) {
+		if (ping_return == -1)
+		{
 			printf("Debug : Ping failed\n"); //TODO print the ping usage
 			return 1;
 		}
 		if (audible == 1)
 			printf("\7");
-		if (count != 0) //permet de ne pas faire de sleep sur le dernier du count pour avoir un exit plus rapide
+		if (count != 0)
 			sleep(timer);
 	}
-
-	// Close socket
 	close(sockfd);
 	free_list(value_list);
 	free(target_name);
-	return 0;
+	return (0);
 }
 
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 
-// -c -i -q -f
+// -c -i -q -f -n
+// TODO 
 
 //TODO get all info from the send_ping function to be able to write down the statistics
 //time = adding up all the ms + number of ms from the intervals

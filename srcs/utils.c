@@ -60,6 +60,11 @@ void	print_usage(void)
 	printf("Usage\n");
 	printf("  ./ft_ping [options] <destination>\n\n");
 	printf("Options:\n");
-	printf("  <destination>    DNS name or IP address\n");
-	printf("  -c <count>       stop after <count> replies\n");
+	printf("  <destination>      DNS name or IP address\n");
+	printf("  -c <count>         stop after <count> replies\n");
+	printf("  -f                 floor ping\n");
+	printf("  -i <interval>      seconds between sending each packet\n");
+	printf("  -q                 quiet output\n");
+
+	
 }
