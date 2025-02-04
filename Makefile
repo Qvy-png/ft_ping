@@ -21,7 +21,8 @@ RM = rm
 OBJ = $(SRC:.c=.o)
 
 SRC =	srcs/ft_ping.c\
-		srcs/utils.c
+		srcs/utils.c\
+		srcs/icmp.c
 		
 INCL =	includes/ft_ping.h
 

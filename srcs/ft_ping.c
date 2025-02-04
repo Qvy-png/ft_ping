@@ -11,8 +11,9 @@ float					timer = 1;
 int						quiet = 0;
 int						flood = 1;
 pid_t					pid;
+struct hostent			*host;
+struct sockaddr_in		addr;
 
-// plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
 // values for final message
 long long unsigned int	received_packets;
 double					total_time = 0;
@@ -21,28 +22,12 @@ double					mdev = 0;
 double					max = 0;
 double					min = 0;
 
+// allows to calculate the total exec time
 struct timeval			stop, start;
 time_t					begin;
 
 // special mdev
 t_mean					*value_list = NULL;
-
-// Calculate checksum for ICMP packet
-unsigned short	checksum(void *b, int len)
-{
-	unsigned short	*buf = b;
-	unsigned int	sum = 0;
-	unsigned short	result;
-
-	for (sum = 0; len > 1; len -= 2)
-		sum += *buf++;
-	if (len == 1)
-		sum += *(unsigned char *)buf;
-	sum = (sum >> 16) + (sum & 0xFFFF);
-	sum += (sum >> 16);
-	result = ~sum;
-	return (result);
-}
 
 // Send ICMP echo request and wait for response
 int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
@@ -97,6 +82,8 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	list_push(&value_list, rtt);
 
+	// TODO changer le code pour me rapprocher du ping officiel
+	// TODO utiliser getnameinfo pour pouvoir récupérer l'adresse du server de reverse proxy
 	if (verbose)
 	{
 		if (verbose_bool++ == 0)
@@ -105,8 +92,6 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	}
 	else
 		printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, 0,rtt); //TODO ttl
-	// else //TODO changer le code pour me rapprocher du ping officiel
-		// printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);	
 	return (0);
 }
 
@@ -163,7 +148,7 @@ int target_finder(int argc, char **argv)
 	i = 1;
 	while (i < argc)
 	{
-		if (argv[i][0] == '-' || is_float(argv[i]))
+		if (argv[i][0] == '-')
 			i++;
 		else
 		{
@@ -223,26 +208,16 @@ int		main(int argc, char **argv)
 	int					foundTarget = 0;
 	unsigned int		end = 0;
 	int 				j = 0;
-	struct hostent		*host;
-	struct sockaddr_in	addr;
 
 	(void)end;
 	if (argc < 2)
-	{
-		printf("Usage: %s [-v] <hostname or IP>\n", argv[0]);
-		return (1);
-	}
+		return (printf("Usage: %s [-v] <hostname or IP>\n", argv[0]), 1);
 	j = arg_finder(argc, argv);
 	if (j != 0)
-	{
 		return (1);
-	}
 	foundTarget = target_finder(argc, argv);
 	if (foundTarget == -1)
-	{
-		printf("No target found\n");
-		return (1);
-	}
+		return (printf("No target found\n"), 1);
 
 	begin =	time(NULL);
   	gettimeofday(&start, NULL);
@@ -250,18 +225,13 @@ int		main(int argc, char **argv)
 	// Resolve hostname to IP address
 	host = gethostbyname(argv[foundTarget]);
 	target_name = strdup(argv[foundTarget]);
-	if (host == NULL) {
-		printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]);
-		return (1);
-	}
+	if (host == NULL)
+		return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), 1);
 
 	// Create socket
 	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (sockfd < 0)
-	{
-		perror("socket");
-		return (1);
-	}
+		return (perror("socket"), 1);
 
 	// Fill in address structure
 	memset(&addr, 0, sizeof(addr));
@@ -300,10 +270,7 @@ int		main(int argc, char **argv)
 		if (audible == 1)
 			printf("\7");
 		if (count != 0)
-		{
-			// if (flood == 1)
-				sleep(timer);
-		}
+			sleep(timer);
 	}
 	close(sockfd);
 	free_list(value_list);
@@ -311,18 +278,7 @@ int		main(int argc, char **argv)
 	return (0);
 }
 
-// TODO retirer les flag -i et -f
-
 //TODO changer les flags pour le bon ping de inetutils-2.0
 // https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
 
-// -c -i -q -f -n
-// TODO 
-
-//TODO get all info from the send_ping function to be able to write down the statistics
-//time = adding up all the ms + number of ms from the intervals
-//packets transmitted = packages sent
-//received = replies from the ip
-//packet loss = number of times there was no reply
-
-//TODO les 5 flags à faire : -a -c -i -o -q
+// -c -q -n
