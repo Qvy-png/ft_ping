@@ -31,5 +31,6 @@ void			print_usage(void);
 
 // icmp.c
 unsigned short	checksum(void *b, int len);
+int				target_finder(int argc, char **argv);
 
 #endif

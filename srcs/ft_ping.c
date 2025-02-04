@@ -139,30 +139,6 @@ int arg_finder(int argc, char **argv)
 	return (0);
 }
 
-int target_finder(int argc, char **argv)
-{
-	int		found_target = -1;
-	int		target_count = 0;
-	int		i;
-
-	i = 1;
-	while (i < argc)
-	{
-		if (argv[i][0] == '-')
-			i++;
-		else
-		{
-			target_count++;
-			found_target = i;
-			i++;
-		}
-	}
-	if (target_count > 1)
-		return (-1);
-	else
-		return (found_target);
-}
-
 void	mdev_calculation(t_mean **head)
 {
 	double					mean = total_time/num_pings;

@@ -16,3 +16,27 @@ unsigned short	checksum(void *b, int len)
 	result = ~sum;
 	return (result);
 }
+
+int target_finder(int argc, char **argv)
+{
+	int		found_target = -1;
+	int		target_count = 0;
+	int		i;
+
+	i = 1;
+	while (i < argc)
+	{
+		if (argv[i][0] == '-')
+			i++;
+		else
+		{
+			target_count++;
+			found_target = i;
+			i++;
+		}
+	}
+	if (target_count > 1)
+		return (-1);
+	else
+		return (found_target);
+}
