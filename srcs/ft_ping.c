@@ -4,11 +4,13 @@
 int						exit_after_reply = 0;
 char					*target_name;
 int						verbose = 0;
+int						verbose_bool = 0;
 int						audible = 0;
 int						count = -1;
 float					timer = 1;
 int						quiet = 0;
 int						flood = 1;
+pid_t					pid;
 
 // plusieurs valuers, le max, le min, le nombre de pings, la moyenne calculée au fur à mesure, la mdev calculée sur max - min
 // values for final message
@@ -91,13 +93,20 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	num_pings++;
 	total_time = total_time + rtt;
 	mdev = max - min;
+	pid = getpid();
 
 	list_push(&value_list, rtt);
 
 	if (verbose)
-		printf("%d bytes from %s: icmp_seq=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, rtt);
-	else //TODO changer le code pour me rapprocher du ping officiel
-		printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);	
+	{
+		if (verbose_bool++ == 0)
+			printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
+		printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, 0, rtt);
+	}
+	else
+		printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, 0,rtt); //TODO ttl
+	// else //TODO changer le code pour me rapprocher du ping officiel
+		// printf("Ping reply received from %s: icmp_seq=%d time=%.3f ms\n", inet_ntoa(addr->sin_addr), seq, rtt);	
 	return (0);
 }
 

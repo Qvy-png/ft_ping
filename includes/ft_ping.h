@@ -8,6 +8,7 @@
 # include <unistd.h>
 # include <signal.h>
 // # include <sys/socket.h>
+# include <sys/types.h>
 # include <netinet/in.h>
 # include <netinet/ip_icmp.h>
 # include <arpa/inet.h>
