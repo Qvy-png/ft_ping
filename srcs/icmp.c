@@ -26,7 +26,7 @@ int target_finder(int argc, char **argv)
 	i = 1;
 	while (i < argc)
 	{
-		if (argv[i][0] == '-')
+		if (argv[i][0] == '-' || is_float(argv[i]))
 			i++;
 		else
 		{

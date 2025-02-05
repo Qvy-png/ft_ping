@@ -10,6 +10,7 @@ int						count = -1;
 float					timer = 1;
 int						quiet = 0;
 int						flood = 1;
+int						ttl = 64;
 pid_t					pid;
 struct hostent			*host;
 struct sockaddr_in		addr;
@@ -33,13 +34,15 @@ t_mean					*value_list = NULL;
 int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 {
 	// using icmp struct from ip_icmp.h
-	char		packet[PACKET_SIZE];
-	struct		timeval start, end;
-	struct		icmp *icmp_hdr;
-	int			bytes_received;
-	int			bytes_sent;
-	socklen_t	addr_len;
-	double		rtt;
+	char			packet[PACKET_SIZE];
+	struct iphdr	*ip_header;
+	struct			timeval start, end;
+	struct icmp		*icmp_hdr;
+	int				bytes_received;
+	int				bytes_sent;
+	int				setsockopt_ret;
+	socklen_t		addr_len;
+	double			rtt;
 
 	// Prepare ICMP header
 	icmp_hdr = (struct icmp *) packet;
@@ -54,6 +57,10 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	// Calculate checksum
 	icmp_hdr->icmp_cksum = checksum(icmp_hdr, PACKET_SIZE);
 
+	setsockopt_ret = setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+	if (setsockopt_ret < 0)
+		return (perror("setsockopt"), -1);
+	
 	// Send ICMP packet
 	bytes_sent = sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, sizeof(*addr));
 	if (bytes_sent <= 0)
@@ -63,7 +70,8 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	addr_len = sizeof(*addr);
 	bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, &addr_len);
 	if (bytes_received <= 0)
-		return (perror("recvfrom\n"), -1);
+		return (printf("jej"), -1);
+	ip_header = (struct iphdr *)packet;
 	received_packets++;
 
 	// Calculate RTT
@@ -88,7 +96,7 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	{
 		if (verbose_bool++ == 0)
 			printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
-		printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, 0, rtt);
+		printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ip_header->ttl, rtt);
 	}
 	else
 		printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, 0,rtt); //TODO ttl
@@ -110,6 +118,8 @@ int arg_finder(int argc, char **argv)
 				print_usage();
 			else if (strcmp(argv[i], "-a") == 0) // makes an audible ping
 				audible = 1;
+			else if (strcmp(argv[i], "-t") == 0) // changes the ttl
+				ttl = atoi(argv[i + 1]);
 			else if (strcmp(argv[i], "-c") == 0) // pings only <count> times
 			{
 				if (is_num(argv[i+1]))
