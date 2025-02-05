@@ -64,6 +64,7 @@ void	print_usage(void)
 	printf("  -c <count>         stop after <count> replies\n");
 	printf("  -q                 quiet output\n");
 	printf("  -n                 quiet output\n");
+	printf("  -t                 change packet's ttl\n");
 	printf("  -?                 print usage\n");
 	
 }

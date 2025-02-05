@@ -17,6 +17,8 @@ unsigned short	checksum(void *b, int len)
 	return (result);
 }
 
+
+// TODO modify to allow for specific IP pings
 int target_finder(int argc, char **argv)
 {
 	int		found_target = -1;

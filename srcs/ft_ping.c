@@ -10,10 +10,16 @@ int						count = -1;
 float					timer = 1;
 int						quiet = 0;
 int						flood = 1;
+char					*ip;
 int						ttl = 64;
 pid_t					pid;
 struct hostent			*host;
+char					hbuf[1025], sbuf[32];
 struct sockaddr_in		addr;
+struct sockaddr_in		recv_ret;
+struct sockaddr_in		gni_ret;
+
+
 
 // values for final message
 long long unsigned int	received_packets;
@@ -34,44 +40,44 @@ t_mean					*value_list = NULL;
 int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 {
 	// using icmp struct from ip_icmp.h
-	char			packet[PACKET_SIZE];
-	struct iphdr	*ip_header;
-	struct			timeval start, end;
-	struct icmp		*icmp_hdr;
-	int				bytes_received;
-	int				bytes_sent;
-	int				setsockopt_ret;
-	socklen_t		addr_len;
-	double			rtt;
+	char				packet[PACKET_SIZE];
+	struct iphdr		*ip_header;
+	struct				timeval start, end;
+	struct s_ping_pkt	*icmp_hdr;
+	struct icmphdr		*recvhdr_tmp;
+	int					bytes_received;
+	int					bytes_sent;
+	double				rtt;
+	unsigned int		recv_ret_len;
 
 	// Prepare ICMP header
-	icmp_hdr = (struct icmp *) packet;
+	// icmp_hdr = (struct icmp *) packet;
 	memset(icmp_hdr, 0, PACKET_SIZE);
-	icmp_hdr->icmp_type = ICMP_ECHO;
-	icmp_hdr->icmp_code = 0;
+	icmp_hdr->hdr.type = ICMP_ECHO;
 	icmp_hdr->icmp_id = getpid();
+	icmp_hdr->icmp_code = 0;
 	icmp_hdr->icmp_seq = seq;
 	icmp_hdr->icmp_cksum = 0;
 	gettimeofday(&start, NULL);
 
-	// Calculate checksum
+	// // Calculate checksum
 	icmp_hdr->icmp_cksum = checksum(icmp_hdr, PACKET_SIZE);
-
-	setsockopt_ret = setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
-	if (setsockopt_ret < 0)
-		return (perror("setsockopt"), -1);
 	
 	// Send ICMP packet
-	bytes_sent = sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, sizeof(*addr));
-	if (bytes_sent <= 0)
+	bytes_sent = sendto(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *)&addr, sizeof(*addr));
+	if (bytes_sent < 0)
 		return (perror("sendto"), -1);
 
 	// Receive ICMP reply
-	addr_len = sizeof(*addr);
-	bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *) addr, &addr_len);
+	recv_ret_len = sizeof(recv_ret);
+	bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (struct sockaddr *)&recv_ret, &recv_ret_len);
 	if (bytes_received <= 0)
-		return (printf("jej"), -1);
+		return (perror("recvfrom"), -1);
+	
+	// Cast packet to get ttl
 	ip_header = (struct iphdr *)packet;
+	printf("JE SUIS LE IP_HEADER->TTL %d\n", ip_header->ttl);
+	recvhdr_tmp = (struct icmphdr *)packet;
 	received_packets++;
 
 	// Calculate RTT
@@ -90,16 +96,22 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	list_push(&value_list, rtt);
 
-	// TODO changer le code pour me rapprocher du ping officiel
-	// TODO utiliser getnameinfo pour pouvoir récupérer l'adresse du server de reverse proxy
-	if (verbose)
+	if (!(recvhdr_tmp->type == 69 && recvhdr_tmp->code == 0 ))
 	{
-		if (verbose_bool++ == 0)
-			printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
-		printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ip_header->ttl, rtt);
+		printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", hbuf, inet_ntoa(addr->sin_addr), seq);
 	}
 	else
-		printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, 0,rtt); //TODO ttl
+	{
+		if (verbose)
+		{
+			if (verbose_bool++ == 0)
+				printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
+			printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, hbuf, inet_ntoa(addr->sin_addr), seq, pid, ip_header->ttl, rtt);
+		}
+		else
+			printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, hbuf, inet_ntoa(addr->sin_addr), seq, ip_header->ttl,rtt);
+	}
+
 	return (0);
 }
 
@@ -114,12 +126,17 @@ int arg_finder(int argc, char **argv)
 		{
 			if (strcmp(argv[i], "-v") == 0) // mandatory flag
 				verbose = 1;
-			else if (strcmp(argv[i], "-?") == 0)
+			else if (strcmp(argv[i], "-?") == 0) // mandatory flag
 				print_usage();
 			else if (strcmp(argv[i], "-a") == 0) // makes an audible ping
 				audible = 1;
 			else if (strcmp(argv[i], "-t") == 0) // changes the ttl
-				ttl = atoi(argv[i + 1]);
+			{
+				if (argv[i+1])
+					ttl = atoi(argv[i + 1]);
+				else
+					return (printf("ping: option requires an argument -- 't'\n\n"), print_usage(), 1);
+			}
 			else if (strcmp(argv[i], "-c") == 0) // pings only <count> times
 			{
 				if (is_num(argv[i+1]))
@@ -183,14 +200,17 @@ void	signal_time(int signal)
 		print_stats();
 		free(target_name);
 		free_list(value_list);
+		free(ip);
 	}
 	exit(0);
 }
 
 int		main(int argc, char **argv) 
 {
+	int					setsockopt_ret;
 	int					sockfd, seq = 0;
 	int 				ping_return = 0;
+	int					getnameinfo_ret;
 	int					foundTarget = 0;
 	unsigned int		end = 0;
 	int 				j = 0;
@@ -208,21 +228,36 @@ int		main(int argc, char **argv)
 	begin =	time(NULL);
   	gettimeofday(&start, NULL);
 
-	// Resolve hostname to IP address
-	host = gethostbyname(argv[foundTarget]);
 	target_name = strdup(argv[foundTarget]);
+	// Resolve hostname to IP address
+	host = gethostbyname(target_name);
 	if (host == NULL)
 		return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), 1);
+
+	// Fill in address structure
+	ip = strdup(inet_ntoa(*(struct in_addr *)host->h_addr));
+	addr.sin_family = host->h_addrtype;
+	addr.sin_port = htons(0);
+	addr.sin_addr.s_addr = *(long *)host->h_addr;
 
 	// Create socket
 	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (sockfd < 0)
 		return (perror("socket"), 1);
 
-	// Fill in address structure
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr = *((struct in_addr *) host->h_addr);
+	// Getnameinfo from addr to get the true server name through reverse proxy
+	gni_ret.sin_family = AF_INET;
+	gni_ret.sin_addr.s_addr = inet_addr(host->h_name);
+	getnameinfo_ret = getnameinfo((struct sockaddr *)&gni_ret, sizeof(gni_ret), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), NI_NAMEREQD);
+	if (getnameinfo_ret < 0)
+		return (perror("getnameinfo"), -1);
+	
+	// Allows to set the ttl of the packet
+	printf("JE SUIS LE TTL : %d\n", ttl);
+	setsockopt_ret = setsockopt(sockfd, SOL_IP, IP_TTL, &ttl, sizeof(ttl));
+	if (setsockopt_ret < 0)
+		return (perror("setsockopt"), -1);
+
 	value_list = malloc(sizeof(t_mean));
 	if (value_list == NULL)
 		return (1);
@@ -244,14 +279,18 @@ int		main(int argc, char **argv)
 				print_stats();
 				free_list(value_list);
 				free(target_name);
+				free(ip);
 				return (0);
 			}
 		}
 		ping_return = send_ping(sockfd, &addr, seq++);
 		if (ping_return == -1)
 		{
-			printf("Debug : Ping failed\n"); //TODO print the ping usage
-			return 1;
+			print_usage();
+			free_list(value_list);
+			free(target_name);
+			free(ip);
+			return (1);
 		}
 		if (audible == 1)
 			printf("\7");
