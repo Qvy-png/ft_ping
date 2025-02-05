@@ -16,6 +16,11 @@
 # include <netdb.h>
 # include <time.h>
 
+struct ping_pkt {
+    struct icmphdr hdr;
+    char msg[PACKET_SIZE - sizeof(struct icmphdr)];
+};
+
 typedef struct s_mean{
 
 	double value;
@@ -32,5 +37,6 @@ void			print_usage(void);
 // icmp.c
 unsigned short	checksum(void *b, int len);
 int				target_finder(int argc, char **argv);
+char			*reverse_dns_lookup(char *ip_addr);
 
 #endif
