@@ -80,7 +80,6 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	}
 	
 	// ip_header = (struct iphdr *)packet;
-	// printf("JE SUIS LE IP_HEADER->TTL %d\n", ip_header->ttl);
 	recvhdr_tmp = (struct icmphdr *)rbuffer;
 	received_packets++;
 
@@ -249,7 +248,7 @@ int		main(int argc, char **argv)
 		return (1);
 	foundTarget = target_finder(argc, argv);
 	if (foundTarget == -1)
-		return (printf("No target found\n"), 1);
+		return (printf("ping: usage error: Destination address required\n"), 1);
 
 	begin =	time(NULL);
   	gettimeofday(&start, NULL);
