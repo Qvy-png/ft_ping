@@ -10,6 +10,7 @@ int						count = -1;
 float					timer = 1;
 int						quiet = 0;
 int						flood = 1;
+int						numerical = 0;
 char					*ip, *reverse_hostname;
 int						ttl = 64;
 pid_t					pid;
@@ -38,11 +39,8 @@ t_mean					*value_list = NULL;
 // Send ICMP echo request and wait for response
 int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 {
-	// using icmp struct from ip_icmp.h
-	// char				packet[PACKET_SIZE];
 	char				rbuffer[128];
 	struct				timeval start, end;
-	// struct icmp			*icmp_hdr;
     struct ping_pkt 	pckt;
 	struct icmphdr		*recvhdr_tmp;
 	int					bytes_received;
@@ -51,15 +49,6 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	int					msg_count = 0;
 	long unsigned int	i;
 	unsigned int		recv_ret_len;
-
-	// Prepare ICMP header
-	// icmp_hdr = (struct icmp *) packet;
-	// memset(icmp_hdr, 0, PACKET_SIZE);
-	// icmp_hdr->icmp_type = ICMP_ECHO;
-	// icmp_hdr->icmp_id = getpid();
-	// icmp_hdr->icmp_code = 0;
-	// icmp_hdr->icmp_seq = seq;
-	// icmp_hdr->icmp_cksum = 0;
 
 	got_it = 1;
 	
@@ -75,8 +64,6 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	gettimeofday(&start, NULL);
 
-	// icmp_hdr->icmp_cksum = checksum(icmp_hdr, PACKET_SIZE);
-	
 	// Send ICMP packet
 	bytes_sent = sendto(sockfd, &pckt, PACKET_SIZE, 0, (struct sockaddr *)addr, sizeof(*addr));
 	if (bytes_sent <= 0)
@@ -113,28 +100,39 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	list_push(&value_list, rtt);
 
-	if (got_it)
+	if (got_it && !quiet)
 	{
-		if (intro == 1)
+		if (verbose && verbose_bool++ == 0)
+			printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
+		if (intro == 1 )
 		{
-			printf("PING %s ()\n", target_name);
+			printf("PING %s (%s) 56(84) bytes of data.\n", target_name, inet_ntoa(addr->sin_addr));
 			intro = 0;
 		}
 		if (!(recvhdr_tmp->type == 69 && recvhdr_tmp->code == 0 ))
 		{
-			printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
+			if (numerical)
+				printf("From %s: icmp_seq=%d Time to live exceeded\n", inet_ntoa(addr->sin_addr), seq);
+			else
+				printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
 			dead_packets++;
 		}
 		else
 		{
 			if (verbose)
 			{
-				if (verbose_bool++ == 0)
-					printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
-				printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.3f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, pid, ttl, rtt);
+				if (numerical)
+					printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
+				else
+					printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
 			}
 			else
-				printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.3f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, ttl,rtt);
+			{
+				if (numerical)
+					printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
+				else
+					printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
+			}
 		}
 	}
 	return (0);
@@ -152,9 +150,11 @@ int arg_finder(int argc, char **argv)
 			if (strcmp(argv[i], "-v") == 0) // mandatory flag
 				verbose = 1;
 			else if (strcmp(argv[i], "-?") == 0) // mandatory flag
-				print_usage();
+				return (print_usage(), 1);
 			else if (strcmp(argv[i], "-a") == 0) // makes an audible ping
 				audible = 1;
+			else if (strcmp(argv[i], "-n") == 0) // makes it numerical only
+				numerical = 1;
 			else if (strcmp(argv[i], "-t") == 0) // changes the ttl
 			{
 				if (argv[i+1])
@@ -181,7 +181,7 @@ int arg_finder(int argc, char **argv)
 					return (1);
 				}
 			}
-			else if (strcmp(argv[i], "-q") == 0) //TODO retirer les messages de ping
+			else if (strcmp(argv[i], "-q") == 0) //silences the output
 				quiet = 1;
 			else
 				return (i);
@@ -234,13 +234,14 @@ void	signal_time(int signal)
 int		main(int argc, char **argv) 
 {
 	int					setsockopt_ret;
-	int					sockfd, seq = 0;
+	int					sockfd;
+	int					seq = 1;
 	int 				ping_return = 0;
 	int					foundTarget = 0;
 	int 				j = 0;
     struct timeval		tv_out;
 
-	// (void)end;
+
 	if (argc < 2)
 		return (printf("Usage: %s [-v] <hostname or IP>\n", argv[0]), 1);
 	j = arg_finder(argc, argv);
@@ -281,8 +282,8 @@ int		main(int argc, char **argv)
 		return (perror("setsockopt"), -1);
 
 	// Setting timout for packets
-	// tv_out.tv_sec = 0;   // Wait 1 second for a reply
-	tv_out.tv_usec = 10000;
+	memset(&tv_out, 0, sizeof(tv_out)); // initialize memory of tv_out
+	tv_out.tv_usec = 10000; // 10ms
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv_out, sizeof tv_out);
 
 	value_list = malloc(sizeof(t_mean));
@@ -331,8 +332,3 @@ int		main(int argc, char **argv)
 	free(target_name);
 	return (0);
 }
-
-//TODO changer les flags pour le bon ping de inetutils-2.0
-// https://manpages.debian.org/bullseye/inetutils-ping/ping.1.en.html
-
-// -c -q -n
