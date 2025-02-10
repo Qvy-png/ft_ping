@@ -4,6 +4,7 @@
 int						exit_after_reply = 0;
 char					*target_name;
 int						verbose = 0;
+int						sockfd;
 int						verbose_bool = 0;
 int						audible = 0;
 int						count = -1;
@@ -17,8 +18,12 @@ pid_t					pid;
 struct hostent			*host;
 struct sockaddr_in		addr;
 struct sockaddr_in		recv_ret;
-int						got_it = 1;
+int						ping_received = 1;
 int						intro = 1;
+
+// flags for FQDN, reverse lookup and a bunch of other stuff
+
+int						flag_hostname = 0;
 
 // values for final message
 long long unsigned int	received_packets = 0;
@@ -50,7 +55,7 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	long unsigned int	i;
 	unsigned int		recv_ret_len;
 
-	got_it = 1;
+	ping_received = 1;
 	
 	bzero(&pckt, sizeof(pckt));
 	pckt.hdr.type = ICMP_ECHO;
@@ -67,7 +72,7 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	// Send ICMP packet
 	bytes_sent = sendto(sockfd, &pckt, PACKET_SIZE, 0, (struct sockaddr *)addr, sizeof(*addr));
 	if (bytes_sent <= 0)
-		return (perror("sendto"), got_it = 0, -1);
+		return (perror("sendto"), ping_received = 0, -1);
 
 	// Receive ICMP reply
 	recv_ret_len = sizeof(recv_ret);
@@ -76,7 +81,7 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 	{
 		printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
 		dead_packets++;
-		got_it = 0;
+		ping_received = 0;
 	}
 	
 	// ip_header = (struct iphdr *)packet;
@@ -99,41 +104,85 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	list_push(&value_list, rtt);
 
-	if (got_it && !quiet)
+	if (ping_received && !quiet)
 	{
+		// printing the second half of the verbose message if ping is received
 		if (verbose && verbose_bool++ == 0)
-			printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\nai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", sockfd, target_name);
+			printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", target_name);
+		
+		// printing the introduction message
 		if (intro == 1 )
 		{
 			printf("PING %s (%s) 56(84) bytes of data.\n", target_name, inet_ntoa(addr->sin_addr));
 			intro = 0;
 		}
+
+		// handles ttl too short
 		if (!(recvhdr_tmp->type == 69 && recvhdr_tmp->code == 0 ))
 		{
-			if (numerical)
-				printf("From %s: icmp_seq=%d Time to live exceeded\n", inet_ntoa(addr->sin_addr), seq);
-			else
-				printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
+			// printf("That thang can't live\n");
+			printf("From %s: icmp_seq=%d Time to live exceeded\n", inet_ntoa(addr->sin_addr), seq);
 			dead_packets++;
 		}
 		else
 		{
-			if (verbose)
-			{
-				if (numerical)
-					printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
-				else
-					printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
-			}
+			// handling ping message
+			
+			/// handling the bytes to print
+			printf("%d bytes ", bytes_received);
+	
+			/// handling numerical (to only show numerical), or when not finding reverse lookup address
+			if (numerical || flag_hostname)
+				printf("from %s:", inet_ntoa(addr->sin_addr));
 			else
-			{
-				if (numerical)
-					printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
-				else
-					printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
-			}
+				printf("from %s (%s):", reverse_hostname, inet_ntoa(addr->sin_addr));
+	
+			printf("icmp_seq=%d ", seq);
+	
+			/// handling verbose with the additional pid to display
+			if (verbose)
+				printf("ident=%d ", pid);
+			// TODO avant de rendre le TTL, checker avec le vrai ping de la fonction ping sur la VM s'il faut vraiment récup le TTL du retour
+			// voir s'il y a besoin de display le ttl - 1
+			printf("ttl=%d time=%.2f ms\n", ttl, rtt);
 		}
+
 	}
+	// if (ping_received && !quiet)
+	// {
+	// 	if (verbose && verbose_bool++ == 0)
+	// 		printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", target_name);
+	// 	if (intro == 1 )
+	// 	{
+	// 		printf("PING %s (%s) 56(84) bytes of data.\n", target_name, inet_ntoa(addr->sin_addr));
+	// 		intro = 0;
+	// 	}
+	// 	if (!(recvhdr_tmp->type == 69 && recvhdr_tmp->code == 0 ))
+	// 	{
+	// 		if (numerical)
+	// 			printf("From %s: icmp_seq=%d Time to live exceeded\n", inet_ntoa(addr->sin_addr), seq);
+	// 		else
+	// 			printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
+	// 		dead_packets++;
+	// 	}
+	// 	else
+	// 	{
+	// 		if (verbose)
+	// 		{
+	// 			if (numerical)
+	// 				printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
+	// 			else
+	// 				printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
+	// 		}
+	// 		else
+	// 		{
+	// 			if (numerical)
+	// 				printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
+	// 			else
+	// 				printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
+	// 		}
+	// 	}
+	// }
 	return (0);
 }
 
@@ -208,6 +257,25 @@ void	mdev_calculation(t_mean **head)
 	mdev /= num_pings;
 }
 
+// Resolve the reverse lookup of the hostname
+char *reverse_dns_lookup(char *ip_addr) {
+    struct sockaddr_in temp_addr;
+    socklen_t len;
+    char buf[NI_MAXHOST], *ret_buf;
+
+    temp_addr.sin_family = AF_INET;
+    temp_addr.sin_addr.s_addr = inet_addr(ip_addr);
+    len = sizeof(struct sockaddr_in);
+
+    if (getnameinfo((struct sockaddr *)&temp_addr, len, buf, sizeof(buf), NULL, 0, NI_NAMEREQD))
+        return NULL;
+
+    ret_buf = (char *)malloc((strlen(buf) + 1) * sizeof(char));
+    strcpy(ret_buf, buf);
+    return ret_buf;
+}
+
+
 void	print_stats(void)
 {
 	gettimeofday(&stop, NULL);
@@ -226,6 +294,7 @@ void	signal_time(int signal)
 		free_list(value_list);
 		free(ip);
 		free(reverse_hostname);
+		close(sockfd);
 	}
 	exit(0);
 }
@@ -233,7 +302,6 @@ void	signal_time(int signal)
 int		main(int argc, char **argv) 
 {
 	int					setsockopt_ret;
-	int					sockfd;
 	int					seq = 1;
 	int 				ping_return = 0;
 	int					foundTarget = 0;
@@ -245,10 +313,19 @@ int		main(int argc, char **argv)
 		return (printf("Usage: %s [-v] <hostname or IP>\n", argv[0]), 1);
 	j = arg_finder(argc, argv);
 	if (j != 0)
-		return (1);
+	return (1);
+	
+	// Create socket
+	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	if (sockfd < 0)
+		return (perror("socket"), 1);
+	
+	if (verbose)
+		printf("ping : sock4.fd: %d (socktype SOCK_RAW)\n\n", sockfd);
+
 	foundTarget = target_finder(argc, argv);
 	if (foundTarget == -1)
-		return (printf("ping: usage error: Destination address required\n"), 1);
+		return (printf("ping: usage error: Destination address required\n"), close(sockfd), 1);
 
 	begin =	time(NULL);
   	gettimeofday(&start, NULL);
@@ -257,7 +334,7 @@ int		main(int argc, char **argv)
 	// Resolve hostname to IP address
 	host = gethostbyname(target_name);
 	if (host == NULL)
-		return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), 1);
+		return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), close(sockfd), 1);
 
 	// Fill in address structure
 	ip = strdup(inet_ntoa(*(struct in_addr *)host->h_addr));
@@ -268,18 +345,13 @@ int		main(int argc, char **argv)
 	// Getnameinfo from addr to get the true server name through reverse proxy
 	reverse_hostname = reverse_dns_lookup(ip);
 	if (reverse_hostname == NULL)
-		return(printf("Could not resolve hostname\n"), 1);
+		flag_hostname = 1;
 
-	// Create socket
-	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-	if (sockfd < 0)
-		return (perror("socket"), 1);
 
 	// Allows to set the ttl of the packet
 	setsockopt_ret = setsockopt(sockfd, SOL_IP, IP_TTL, &ttl, sizeof(ttl));
 	if (setsockopt_ret < 0)
 		return (perror("setsockopt"), -1);
-
 	// Setting timout for packets
 	memset(&tv_out, 0, sizeof(tv_out)); // initialize memory of tv_out
 	tv_out.tv_usec = 10000; // 10ms

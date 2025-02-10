@@ -15,6 +15,8 @@
 # include <stdio.h>
 # include <netdb.h>
 # include <time.h>
+# include <ctype.h>
+
 
 struct ping_pkt {
     struct icmphdr hdr;
