@@ -18,6 +18,7 @@
 # include <ctype.h>
 
 
+
 struct ping_pkt {
     struct icmphdr hdr;
     char msg[PACKET_SIZE - sizeof(struct icmphdr)];

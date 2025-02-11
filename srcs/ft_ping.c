@@ -299,6 +299,37 @@ void	signal_time(int signal)
 	exit(0);
 }
 
+int resolve_host(const char *target_name, struct sockaddr_in *addr, char *ip, size_t ip_len)
+{
+    struct addrinfo hints, *res;
+    int status;
+
+    // Prepare hints
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;  // Force IPv4 (change to AF_UNSPEC for IPv4/IPv6 support)
+    hints.ai_socktype = SOCK_RAW; // Raw socket for ICMP
+    hints.ai_flags = AI_CANONNAME;
+
+    // Resolve hostname
+    status = getaddrinfo(target_name, NULL, &hints, &res);
+    if (status != 0) {
+        printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status));
+        return (1);
+    }
+
+    // Extract IP
+    struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
+    inet_ntop(AF_INET, &ipv4->sin_addr, ip, ip_len);
+
+    // Fill sockaddr_in structure
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(0);
+    addr->sin_addr = ipv4->sin_addr;
+
+    freeaddrinfo(res);
+    return (0);
+}
+
 int		main(int argc, char **argv) 
 {
 	int					setsockopt_ret;
@@ -328,19 +359,52 @@ int		main(int argc, char **argv)
 		return (printf("ping: usage error: Destination address required\n"), close(sockfd), 1);
 
 	begin =	time(NULL);
-  	gettimeofday(&start, NULL);
+	gettimeofday(&start, NULL);
 
 	target_name = strdup(argv[foundTarget]);
-	// Resolve hostname to IP address
-	host = gethostbyname(target_name);
-	if (host == NULL)
-		return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), close(sockfd), 1);
+	// // Resolve hostname to IP address
+	// host = gethostbyname(target_name);
+	// if (host == NULL)
+	// 	return (printf("ft_ping: cannot resolve %s: Unknown host\n", argv[foundTarget]), close(sockfd), 1);
 
-	// Fill in address structure
-	ip = strdup(inet_ntoa(*(struct in_addr *)host->h_addr));
-	addr.sin_family = host->h_addrtype;
-	addr.sin_port = htons(0);
-	addr.sin_addr.s_addr = *(long *)host->h_addr;
+	// // Fill in address structure
+	// ip = strdup(inet_ntoa(*(struct in_addr *)host->h_addr));
+	// addr.sin_family = host->h_addrtype;
+	// addr.sin_port = htons(0);
+	// addr.sin_addr.s_addr = *(long *)host->h_addr;
+	
+	//FIX_GETHOSTBYNAME_SHIT
+
+		struct addrinfo hints, *res;
+		int status;
+		
+		// Prepare hints
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_INET;  // Keep it IPv4 (change to AF_UNSPEC for IPv6 support)
+		hints.ai_socktype = SOCK_RAW;
+		hints.ai_flags = AI_CANONNAME;
+		
+		// Resolve hostname
+		status = getaddrinfo(target_name, NULL, &hints, &res);
+		if (status != 0) {
+			return (printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status)), close(sockfd), 1);
+		}
+		
+		// Extract first result (like gethostbyname would return)
+		struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
+		
+		// Convert IP to string
+		ip = strdup(inet_ntoa(ipv4->sin_addr));
+		
+		// Fill in address structure
+		addr.sin_family = res->ai_family;
+		addr.sin_port = htons(0);
+		addr.sin_addr = ipv4->sin_addr;
+		
+		// Cleanup
+		freeaddrinfo(res);
+
+	//
 
 	// Getnameinfo from addr to get the true server name through reverse proxy
 	reverse_hostname = reverse_dns_lookup(ip);
