@@ -90,8 +90,9 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 
 	// Calculate RTT
 	gettimeofday(&end, NULL);
+	// printf("end.tv_sec: %ld and end.tv_usec: %ld\n", end.tv_sec * 1000000 + end.tv_usec,  end.tv_usec);
 	if (end.tv_usec >= start.tv_usec)
-		rtt = (double) (end.tv_usec - start.tv_usec) / 1000.0;
+		rtt = (double) ((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)) / 1000.0;
 
 	if (rtt > max)
 		max = rtt;
@@ -135,7 +136,7 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 			if (numerical || flag_hostname)
 				printf("from %s:", inet_ntoa(addr->sin_addr));
 			else
-				printf("from %s (%s):", reverse_hostname, inet_ntoa(addr->sin_addr));
+				printf("from %s (%s): ", reverse_hostname, inet_ntoa(addr->sin_addr));
 	
 			printf("icmp_seq=%d ", seq);
 	
@@ -144,45 +145,10 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 				printf("ident=%d ", pid);
 			// TODO avant de rendre le TTL, checker avec le vrai ping de la fonction ping sur la VM s'il faut vraiment récup le TTL du retour
 			// voir s'il y a besoin de display le ttl - 1
-			printf("ttl=%d time=%.2f ms\n", ttl, rtt);
+			printf("ttl=%d time=%.2f ms\n", ttl - 1, rtt);
 		}
 
 	}
-	// if (ping_received && !quiet)
-	// {
-	// 	if (verbose && verbose_bool++ == 0)
-	// 		printf("ai->ai_family: AF_INET, ai->ai_canonname: '%s'\n", target_name);
-	// 	if (intro == 1 )
-	// 	{
-	// 		printf("PING %s (%s) 56(84) bytes of data.\n", target_name, inet_ntoa(addr->sin_addr));
-	// 		intro = 0;
-	// 	}
-	// 	if (!(recvhdr_tmp->type == 69 && recvhdr_tmp->code == 0 ))
-	// 	{
-	// 		if (numerical)
-	// 			printf("From %s: icmp_seq=%d Time to live exceeded\n", inet_ntoa(addr->sin_addr), seq);
-	// 		else
-	// 			printf("From %s (%s): icmp_seq=%d Time to live exceeded\n", reverse_hostname, inet_ntoa(addr->sin_addr), seq);
-	// 		dead_packets++;
-	// 	}
-	// 	else
-	// 	{
-	// 		if (verbose)
-	// 		{
-	// 			if (numerical)
-	// 				printf("%d bytes from %s: icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
-	// 			else
-	// 				printf("%d bytes from %s (%s): icmp_seq=%d ident=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, pid, ttl - 1, rtt);
-	// 		}
-	// 		else
-	// 		{
-	// 			if (numerical)
-	// 				printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
-	// 			else
-	// 				printf("%d bytes from %s (%s): icmp_seq=%d ttl=%d time=%.2f ms\n", bytes_received, reverse_hostname, inet_ntoa(addr->sin_addr), seq, ttl - 1,rtt);
-	// 		}
-	// 	}
-	// }
 	return (0);
 }
 
@@ -299,37 +265,6 @@ void	signal_time(int signal)
 	exit(0);
 }
 
-int resolve_host(const char *target_name, struct sockaddr_in *addr, char *ip, size_t ip_len)
-{
-    struct addrinfo hints, *res;
-    int status;
-
-    // Prepare hints
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;  // Force IPv4 (change to AF_UNSPEC for IPv4/IPv6 support)
-    hints.ai_socktype = SOCK_RAW; // Raw socket for ICMP
-    hints.ai_flags = AI_CANONNAME;
-
-    // Resolve hostname
-    status = getaddrinfo(target_name, NULL, &hints, &res);
-    if (status != 0) {
-        printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status));
-        return (1);
-    }
-
-    // Extract IP
-    struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
-    inet_ntop(AF_INET, &ipv4->sin_addr, ip, ip_len);
-
-    // Fill sockaddr_in structure
-    addr->sin_family = AF_INET;
-    addr->sin_port = htons(0);
-    addr->sin_addr = ipv4->sin_addr;
-
-    freeaddrinfo(res);
-    return (0);
-}
-
 int		main(int argc, char **argv) 
 {
 	int					setsockopt_ret;
@@ -362,6 +297,7 @@ int		main(int argc, char **argv)
 	gettimeofday(&start, NULL);
 
 	target_name = strdup(argv[foundTarget]);
+
 	// // Resolve hostname to IP address
 	// host = gethostbyname(target_name);
 	// if (host == NULL)
@@ -387,7 +323,7 @@ int		main(int argc, char **argv)
 		// Resolve hostname
 		status = getaddrinfo(target_name, NULL, &hints, &res);
 		if (status != 0) {
-			return (printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status)), close(sockfd), 1);
+			return (printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status)), free(target_name), close(sockfd),  1);
 		}
 		
 		// Extract first result (like gethostbyname would return)
@@ -418,7 +354,7 @@ int		main(int argc, char **argv)
 		return (perror("setsockopt"), -1);
 	// Setting timout for packets
 	memset(&tv_out, 0, sizeof(tv_out)); // initialize memory of tv_out
-	tv_out.tv_usec = 10000; // 10ms
+	tv_out.tv_sec = 1; // 1s timout
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv_out, sizeof tv_out);
 
 	value_list = malloc(sizeof(t_mean));

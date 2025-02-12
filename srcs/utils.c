@@ -54,17 +54,20 @@ void	free_list(t_mean *head)
 	}
 }
 
-// TODO finish usage with the correct flags -c -q -n
 void	print_usage(void)
 {
 	printf("Usage\n");
 	printf("  ./ft_ping [options] <destination>\n\n");
 	printf("Options:\n");
 	printf("  <destination>      DNS name or IP address\n");
+	printf(" MANDATORY\n");
+	printf("  -v                 verbose output\n");
+	printf("  -?                 print usage\n");
+	printf(" BONUS\n");
 	printf("  -c <count>         stop after <count> replies\n");
 	printf("  -q                 quiet output\n");
-	printf("  -n                 quiet output\n");
+	printf("  -n                 no reverse DNS name resolution\n");
 	printf("  -t                 change packet's ttl\n");
-	printf("  -?                 print usage\n");
+	printf("  -a                 use audible ping\n");
 	
 }
