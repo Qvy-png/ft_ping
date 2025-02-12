@@ -16,35 +16,3 @@ unsigned short	checksum(void *b, int len)
 	result = ~sum;
 	return (result);
 }
-
-int is_valid_ip(const char *str)
-{
-	struct sockaddr_in sa;
-	return (inet_pton(AF_INET, str, &(sa.sin_addr)) != 0);
-}
-
-int target_finder(int argc, char **argv)
-{
-	int found_target = -1;
-	int target_count = 0;
-	int i = 1;
-
-	while (i < argc)
-	{
-		if (argv[i][0] == '-') // Ignore flags
-			i++;
-		else if (is_valid_ip(argv[i]) || isalpha(argv[i][0])) // Accept IP or FQDN
-		{
-			target_count++;
-			found_target = i;
-			i++;
-		}
-		else
-			i++;
-	}
-
-	if (target_count > 1)
-		return -1;
-	else
-		return found_target;
-}

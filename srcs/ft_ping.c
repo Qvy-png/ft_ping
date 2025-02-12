@@ -41,6 +41,41 @@ time_t					begin;
 // special mdev
 t_mean					*value_list = NULL;
 
+int is_valid_ip(const char *str)
+{
+	struct sockaddr_in sa;
+	return (inet_pton(AF_INET, str, &(sa.sin_addr)) != 0);
+}
+
+int target_finder(int argc, char **argv)
+{
+	int found_target = -1;
+	int target_count = 0;
+	int i = 1;
+
+	while (i < argc)
+	{
+		if (argv[i][0] == '-') // Ignore flags
+			i++;
+		else if (is_valid_ip(argv[i]) || isalpha(argv[i][0])) // Accept IP or FQDN
+		{
+			target_count++;
+			found_target = i;
+			if (is_valid_ip(argv[i]))
+				numerical = 1;
+			i++;
+		}
+		else
+			i++;
+	}
+
+	if (target_count > 1)
+		return -1;
+	else
+		return found_target;
+}
+
+
 // Send ICMP echo request and wait for response
 int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 {
@@ -147,7 +182,6 @@ int	send_ping(int sockfd, struct sockaddr_in *addr, int seq)
 			// voir s'il y a besoin de display le ttl - 1
 			printf("ttl=%d time=%.2f ms\n", ttl - 1, rtt);
 		}
-
 	}
 	return (0);
 }
@@ -323,7 +357,7 @@ int		main(int argc, char **argv)
 		// Resolve hostname
 		status = getaddrinfo(target_name, NULL, &hints, &res);
 		if (status != 0) {
-			return (printf("ft_ping: cannot resolve %s: %s\n", target_name, gai_strerror(status)), free(target_name), close(sockfd),  1);
+			return (printf("ft_ping: %s: %s\n", target_name, gai_strerror(status)), free(target_name), close(sockfd),  1);
 		}
 		
 		// Extract first result (like gethostbyname would return)
